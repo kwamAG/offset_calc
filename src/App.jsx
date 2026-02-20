@@ -1,6 +1,17 @@
 import { useState } from 'react'
 
-// --- Math ported from Python ---
+// --- Math ---
+
+function calculateSimpleOffset(offset, run) {
+  const travel = Math.sqrt(offset * offset + run * run)
+  const angleRad = Math.asin(offset / travel)
+  const angleDeg = angleRad * (180 / Math.PI)
+  return {
+    trueOffset: Math.round(offset * 10000) / 10000,
+    travel: Math.round(travel * 10000) / 10000,
+    angle: Math.round(angleDeg * 100) / 100,
+  }
+}
 
 function calculateRollingOffset(rise, roll, run) {
   const trueOffset = Math.sqrt(rise * rise + roll * roll)
@@ -14,7 +25,7 @@ function calculateRollingOffset(rise, roll, run) {
   }
 }
 
-// Make-in (engagement depth) by pipe size in inches — standard threaded/socket
+// Make-in (engagement depth) by pipe size in inches
 const MAKE_IN = {
   0.5: 0.5,
   0.625: 0.5,
@@ -88,9 +99,26 @@ const styles = {
     textAlign: 'center',
     fontSize: '28px',
     fontWeight: 700,
-    margin: '0 0 24px 0',
+    margin: '0 0 20px 0',
     color: '#ffffff',
   },
+  modeRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '8px',
+    marginBottom: '24px',
+  },
+  modeBtn: (active) => ({
+    padding: '14px 0',
+    fontSize: '18px',
+    fontWeight: 700,
+    border: active ? '2px solid #4ecca3' : '2px solid #333',
+    borderRadius: '10px',
+    background: active ? '#4ecca3' : '#16213e',
+    color: active ? '#1a1a2e' : '#e0e0e0',
+    cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
+  }),
   label: {
     display: 'block',
     fontSize: '16px',
@@ -112,6 +140,24 @@ const styles = {
     boxSizing: 'border-box',
     marginBottom: '16px',
     WebkitAppearance: 'none',
+  },
+  inputError: {
+    width: '100%',
+    padding: '14px 16px',
+    fontSize: '24px',
+    fontWeight: 700,
+    border: '2px solid #e05c5c',
+    borderRadius: '10px',
+    background: '#16213e',
+    color: '#fff',
+    boxSizing: 'border-box',
+    marginBottom: '4px',
+    WebkitAppearance: 'none',
+  },
+  errorMsg: {
+    fontSize: '14px',
+    color: '#e05c5c',
+    marginBottom: '12px',
   },
   sizeGrid: {
     display: 'grid',
@@ -201,6 +247,25 @@ const styles = {
     fontWeight: 700,
     color: '#fff',
   },
+  travelBox: {
+    textAlign: 'center',
+    background: '#0f3460',
+    borderRadius: '12px',
+    padding: '24px 16px',
+    marginBottom: '16px',
+  },
+  travelLabel: {
+    fontSize: '16px',
+    color: '#4ecca3',
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+    marginBottom: '8px',
+  },
+  travelValue: {
+    fontSize: '56px',
+    fontWeight: 700,
+    color: '#fff',
+  },
   clearBtn: {
     width: '100%',
     padding: '16px',
@@ -216,72 +281,173 @@ const styles = {
 }
 
 export default function App() {
+  const [mode, setMode] = useState('simple') // 'simple' or 'rolling'
+
+  // Simple offset inputs
+  const [offset, setOffset] = useState('')
+  const [simpleRun, setSimpleRun] = useState('')
+
+  // Rolling offset inputs
   const [rise, setRise] = useState('')
   const [roll, setRoll] = useState('')
-  const [run, setRun] = useState('')
-  const [pipeGroup, setPipeGroup] = useState(1) // 0=Refer, 1=Pipe
+  const [rollingRun, setRollingRun] = useState('')
+
+  const [pipeGroup, setPipeGroup] = useState(1)
   const [pipeSize, setPipeSize] = useState(4)
-  const [fittingType, setFittingType] = useState('90_LR')
+  const [fittingType, setFittingType] = useState('45')
   const [results, setResults] = useState(null)
+  const [error, setError] = useState('')
 
   function handleCalculate() {
-    const r = parseFloat(rise)
-    const o = parseFloat(roll)
-    const u = parseFloat(run)
-    if (isNaN(r) || isNaN(o) || isNaN(u) || r <= 0 || o <= 0 || u <= 0) return
-
-    const calc = calculateRollingOffset(r, o, u)
-    const cutLen = getCutLength(calc.travel, pipeSize, fittingType)
-    setResults({
-      trueOffset: calc.trueOffset,
-      travel: calc.travel,
-      angle: calc.angle,
-      cutLength: cutLen,
-      cutFraction: decimalToFraction(Math.max(0, cutLen)),
-    })
+    setError('')
+    if (mode === 'simple') {
+      const o = parseFloat(offset)
+      const u = parseFloat(simpleRun)
+      if (isNaN(o) || o <= 0) {
+        setError('Enter a valid Offset greater than 0')
+        return
+      }
+      if (isNaN(u) || u <= 0) {
+        setError('Enter a valid Run greater than 0')
+        return
+      }
+      const calc = calculateSimpleOffset(o, u)
+      const cutLen = getCutLength(calc.travel, pipeSize, fittingType)
+      setResults({
+        trueOffset: calc.trueOffset,
+        travel: calc.travel,
+        angle: calc.angle,
+        cutLength: cutLen,
+        cutFraction: decimalToFraction(Math.max(0, cutLen)),
+        travelFraction: decimalToFraction(calc.travel),
+      })
+    } else {
+      const r = parseFloat(rise)
+      const o = parseFloat(roll)
+      const u = parseFloat(rollingRun)
+      if (isNaN(r) || r <= 0) {
+        setError('Enter a valid Rise greater than 0')
+        return
+      }
+      if (isNaN(o) || o <= 0) {
+        setError('Enter a valid Roll greater than 0')
+        return
+      }
+      if (isNaN(u) || u <= 0) {
+        setError('Enter a valid Run greater than 0')
+        return
+      }
+      const calc = calculateRollingOffset(r, o, u)
+      const cutLen = getCutLength(calc.travel, pipeSize, fittingType)
+      setResults({
+        trueOffset: calc.trueOffset,
+        travel: calc.travel,
+        angle: calc.angle,
+        cutLength: cutLen,
+        cutFraction: decimalToFraction(Math.max(0, cutLen)),
+        travelFraction: decimalToFraction(calc.travel),
+      })
+    }
   }
 
   function handleClear() {
+    setOffset('')
+    setSimpleRun('')
     setRise('')
     setRoll('')
-    setRun('')
+    setRollingRun('')
     setResults(null)
+    setError('')
+  }
+
+  function handleModeSwitch(newMode) {
+    setMode(newMode)
+    setResults(null)
+    setError('')
   }
 
   return (
     <div style={styles.body}>
       <h1 style={styles.title}>Pipe Offset Calc</h1>
 
-      {/* Inputs */}
-      <label style={styles.label}>Rise (inches)</label>
-      <input
-        style={styles.input}
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        value={rise}
-        onChange={(e) => setRise(e.target.value)}
-      />
+      {/* Mode Toggle */}
+      <div style={styles.modeRow}>
+        <button
+          style={styles.modeBtn(mode === 'simple')}
+          onClick={() => handleModeSwitch('simple')}
+        >
+          Simple
+        </button>
+        <button
+          style={styles.modeBtn(mode === 'rolling')}
+          onClick={() => handleModeSwitch('rolling')}
+        >
+          Rolling
+        </button>
+      </div>
 
-      <label style={styles.label}>Roll (inches)</label>
-      <input
-        style={styles.input}
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        value={roll}
-        onChange={(e) => setRoll(e.target.value)}
-      />
+      {/* Simple Offset Inputs */}
+      {mode === 'simple' && (
+        <>
+          <label style={styles.label}>Offset (inches)</label>
+          <input
+            style={styles.input}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={offset}
+            onChange={(e) => setOffset(e.target.value)}
+          />
 
-      <label style={styles.label}>Run (inches)</label>
-      <input
-        style={styles.input}
-        type="number"
-        inputMode="decimal"
-        placeholder="0"
-        value={run}
-        onChange={(e) => setRun(e.target.value)}
-      />
+          <label style={styles.label}>Run (inches)</label>
+          <input
+            style={styles.input}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={simpleRun}
+            onChange={(e) => setSimpleRun(e.target.value)}
+          />
+        </>
+      )}
+
+      {/* Rolling Offset Inputs */}
+      {mode === 'rolling' && (
+        <>
+          <label style={styles.label}>Rise (inches)</label>
+          <input
+            style={styles.input}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={rise}
+            onChange={(e) => setRise(e.target.value)}
+          />
+
+          <label style={styles.label}>Roll (inches)</label>
+          <input
+            style={styles.input}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={roll}
+            onChange={(e) => setRoll(e.target.value)}
+          />
+
+          <label style={styles.label}>Run (inches)</label>
+          <input
+            style={styles.input}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={rollingRun}
+            onChange={(e) => setRollingRun(e.target.value)}
+          />
+        </>
+      )}
+
+      {/* Error message */}
+      {error && <div style={styles.errorMsg}>{error}</div>}
 
       {/* Pipe Size */}
       <label style={styles.label}>Pipe Size</label>
@@ -336,6 +502,11 @@ export default function App() {
       {/* Results */}
       {results && (
         <>
+          <div style={styles.travelBox}>
+            <div style={styles.travelLabel}>Travel</div>
+            <div style={styles.travelValue}>{results.travelFraction}</div>
+          </div>
+
           <div style={styles.cutLengthBox}>
             <div style={styles.cutLengthLabel}>Cut Length</div>
             <div style={styles.cutLengthValue}>{results.cutFraction}</div>
