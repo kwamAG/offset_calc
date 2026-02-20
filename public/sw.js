@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pipe-calc-v1'
+const CACHE_NAME = 'pipe-calc-v2'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
